@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image Slideshow with Audio</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    .container {
+      margin-bottom: 20px;
+    }
+    .item {
+      border: 1px solid #ddd;
+      padding: 10px;
+      margin-bottom: 15px;
+    }
+    textarea {
+      width: 100%;
+      height: 80px;
+      margin-bottom: 10px;
+    }
+    .slideshow-container {
+      position: relative;
+      max-width: 100%;
+      height: 300px;
+      margin: auto;
+      overflow: hidden;
+      border: 2px solid #ddd;
+    }
+    .slide {
+      display: none;
+      position: absolute;
+      width: 100%;
+      height: 100%;
+    }
+    .slide img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .slide p {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.6);
+      color: white; /* Default text color */
+      padding: 10px;
+      border-radius: 5px;
+      font-weight: bold;
+      text-shadow: 2px 2px 5px black; /* Added shadow for better visibility */
+      white-space: pre-wrap; /* Preserves line breaks in text */
+    }
+  </style>
+</head>
+<body>
+  <h1>Slideshow with Audio</h1>
+
+  <!-- Global Settings for Text -->
+  <div class="container">
+    <h2>Global Text Settings</h2>
+    <label for="globalTextColor">Choose Text Color:</label>
+    <input type="color" id="globalTextColor" value="#ffffff"><br><br>
+    <label for="globalTextSize">Set Text Size (px):</label>
+    <input type="number" id="globalTextSize" value="20" min="10" max="50">
+  </div>
+
+  <!-- Audio Input -->
+  <div class="container">
+    <label for="audioInput">Upload Audio:</label>
+    <input type="file" id="audioInput" accept="audio/*">
+  </div>
+
+  <!-- Inputs for Image, Text, and Timings -->
+  <div id="contentContainer">
+    <h2>Content Sections</h2>
+  </div>
+  <button id="addSectionBtn">Add Section (Max 5)</button>
+
+  <!-- Generate Button -->
+  <div class="container">
+    <button id="generateBtn">Generate Slideshow</button>
+  </div>
+
+  <!-- Slideshow Section -->
+  <div class="slideshow-container" id="slideshowContainer"></div>
+
+  <!-- Audio Controls -->
+  <audio id="audioPlayer" controls style="width: 100%; margin-top: 20px;"></audio>
+
+  <script>
+    const contentContainer = document.getElementById('contentContainer');
+    const addSectionBtn = document.getElementById('addSectionBtn');
+    const generateBtn = document.getElementById('generateBtn');
+    const slideshowContainer = document.getElementById('slideshowContainer');
+    const audioPlayer = document.getElementById('audioPlayer');
+    const audioInput = document.getElementById('audioInput');
+    const globalTextColor = document.getElementById('globalTextColor');
+    const globalTextSize = document.getElementById('globalTextSize');
+
+    let sectionCount = 0;
+    let slides = [];
+
+    // Add new section
+    addSectionBtn.addEventListener('click', () => {
+      if (sectionCount >= 5) {
+        alert('You can only add up to 5 sections.');
+        return;
+      }
+
+      sectionCount++;
+      const section = document.createElement('div');
+      section.classList.add('item');
+      section.innerHTML = `
+        <h4>Section ${sectionCount}</h4>
+        <textarea placeholder="Enter your text here..." class="textInput"></textarea>
+        <div>
+          <label>Choose Image:</label>
+          <input type="file" class="imageInput" accept="image/*">
+        </div>
+        <div>
+          <label>Start Time (sec):</label>
+          <input type="number" class="startTime" placeholder="Start Time">
+        </div>
+        <div>
+          <label>End Time (sec):</label>
+          <input type="number" class="endTime" placeholder="End Time">
+        </div>
+      `;
+      contentContainer.appendChild(section);
+    });
+
+    // Generate slideshow
+    generateBtn.addEventListener('click', () => {
+      if (!audioInput.files[0]) {
+        alert('Please upload an audio file.');
+        return;
+      }
+
+      // Load the audio
+      const audioFile = URL.createObjectURL(audioInput.files[0]);
+      audioPlayer.src = audioFile;
+
+      // Reset the slideshow container and slides
+      slideshowContainer.innerHTML = '';
+      slides = [];
+
+      // Collect data from all sections
+      const sections = document.querySelectorAll('.item');
+      if (sections.length === 0) {
+        alert('Please add at least one section.');
+        return;
+      }
+
+      sections.forEach((section, index) => {
+        const text = section.querySelector('.textInput').value;
+        const imageFile = section.querySelector('.imageInput').files[0];
+        const startTime = parseFloat(section.querySelector('.startTime').value);
+        const endTime = parseFloat(section.querySelector('.endTime').value);
+
+        if (!text || !imageFile || isNaN(startTime) || isNaN(endTime)) {
+          alert(`Please fill out all fields in Section ${index + 1}`);
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          const slide = {
+            text,
+            image: e.target.result,
+            startTime,
+            endTime,
+          };
+          slides.push(slide);
+          renderSlides();
+        };
+        reader.readAsDataURL(imageFile);
+      });
+    });
+
+    // Render slides in the slideshow container
+    function renderSlides() {
+      slideshowContainer.innerHTML = '';
+      slides.forEach((slide, index) => {
+        const slideDiv = document.createElement('div');
+        slideDiv.classList.add('slide');
+        slideDiv.innerHTML = `
+          <img src="${slide.image}" alt="Slide ${index + 1}">
+          <p style="color: ${globalTextColor.value}; font-size: ${globalTextSize.value}px;">${slide.text}</p>
+        `;
+        slideshowContainer.appendChild(slideDiv);
+      });
+
+      playSlideshow();
+    }
+
+    // Play slideshow with audio
+    function playSlideshow() {
+      const slideElements = document.querySelectorAll('.slide');
+      let currentSlide = 0;
+
+      audioPlayer.addEventListener('timeupdate', () => {
+        const currentTime = audioPlayer.currentTime;
+
+        slides.forEach((slide, index) => {
+          if (
+            currentTime >= slide.startTime &&
+            currentTime <= slide.endTime &&
+            currentSlide !== index
+          ) {
+            slideElements[currentSlide].style.display = 'none'; // Hide current slide
+            slideElements[index].style.display = 'block'; // Show next slide
+            currentSlide = index;
+          }
+        });
+      });
+
+      // Initialize slideshow
+      if (slides.length > 0) {
+        slideElements[0].style.display = 'block'; // Show first slide
+      }
+    }
+  </script>
+</body>
+</html>
+
