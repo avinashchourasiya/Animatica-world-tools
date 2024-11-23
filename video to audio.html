@@ -57,7 +57,124 @@
 
                 // Enable download link
                 downloadLink.href = audioUrl;
+                downloadLink.style.display = 'block';<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video to Audio Converter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #progressBarContainer {
+            width: 100%;
+            background-color: #f3f3f3;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-top: 20px;
+            display: none;
+        }
+        #progressBar {
+            width: 0;
+            height: 20px;
+            background-color: #4caf50;
+            border-radius: 5px;
+            transition: width 0.2s ease;
+        }
+    </style>
+</head>
+<body>
+    <h1>Video to Audio Converter</h1>
+    <input type="file" id="videoInput" accept="video/*">
+    <button id="convertButton" disabled>Convert to Audio</button>
+    <div id="progressBarContainer">
+        <div id="progressBar"></div>
+    </div>
+    <a id="downloadLink" style="display: none;" download="audio.mp3">Download Audio</a>
+
+    <script>
+        const videoInput = document.getElementById('videoInput');
+        const convertButton = document.getElementById('convertButton');
+        const downloadLink = document.getElementById('downloadLink');
+        const progressBarContainer = document.getElementById('progressBarContainer');
+        const progressBar = document.getElementById('progressBar');
+
+        let mediaRecorder;
+        let audioChunks = [];
+
+        // Enable the convert button if a video is selected
+        videoInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                convertButton.disabled = false;
+            }
+        });
+
+        convertButton.addEventListener('click', async () => {
+            const file = videoInput.files[0];
+            if (!file) return;
+
+            // Show progress bar and reset its progress
+            progressBarContainer.style.display = 'block';
+            progressBar.style.width = '0%';
+
+            // Create a video element to play the file
+            const video = document.createElement('video');
+            video.src = URL.createObjectURL(file);
+            video.crossOrigin = "anonymous";
+
+            // Wait for the video metadata to load
+            await new Promise(resolve => {
+                video.addEventListener('loadedmetadata', resolve);
+            });
+
+            // Create an audio context and source
+            const audioContext = new AudioContext();
+            const source = audioContext.createMediaElementSource(video);
+
+            // Create a destination node
+            const destination = audioContext.createMediaStreamDestination();
+            source.connect(destination);
+
+            // Prepare MediaRecorder to record the audio
+            mediaRecorder = new MediaRecorder(destination.stream);
+            mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+            mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/mp3' });
+                const audioUrl = URL.createObjectURL(audioBlob);
+
+                // Enable download link
+                downloadLink.href = audioUrl;
                 downloadLink.style.display = 'block';
+                downloadLink.textContent = 'Download Audio';
+
+                // Hide progress bar
+                progressBarContainer.style.display = 'none';
+            };
+
+            // Start recording and play the video to extract audio
+            audioChunks = [];
+            mediaRecorder.start();
+            video.play();
+
+            // Update progress bar as the video plays
+            video.addEventListener('timeupdate', () => {
+                const progress = (video.currentTime / video.duration) * 100;
+                progressBar.style.width = `${progress}%`;
+            });
+
+            // Stop recording when the video ends
+            video.addEventListener('ended', () => {
+                mediaRecorder.stop();
+                audioContext.close();
+            });
+        });
+    </script>
+</body>
+</html>
+
                 downloadLink.textContent = 'Download Audio';
             };
 
